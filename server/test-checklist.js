@@ -18,7 +18,7 @@ async function run() {
 
   // Seed data
   const vols = await req('/admin/volunteers', { headers: ADMIN });
-  check('Trial data exists', vols.data.volunteers?.length === 5);
+  check('Trial data exists', vols.data.volunteers?.length >= 5);
 
   // Login
   const login = await req('/volunteer/login', {

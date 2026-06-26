@@ -163,7 +163,11 @@ export const store = {
   setBoard: (volunteerId, cells) => {
     getDb();
     const existing = state.boards.find((b) => b.volunteer_id === volunteerId);
-    if (existing) return existing;
+    if (existing) {
+      existing.cells = cells;
+      scheduleSave();
+      return existing;
+    }
     const board = {
       id: state.nextBoardId++,
       volunteer_id: volunteerId,

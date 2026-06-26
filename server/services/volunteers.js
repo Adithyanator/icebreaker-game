@@ -169,6 +169,7 @@ export function generateBoardForVolunteer(volunteerId) {
 }
 
 export function generateAllBoards() {
+  store.clearAllBoards();
   const volunteers = store.getVolunteers();
   return volunteers.map((v) => ({
     volunteerId: v.id,
