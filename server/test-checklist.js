@@ -16,6 +16,9 @@ async function run() {
     else { console.log(`✗ ${name}`); failed++; }
   }
 
+  // Reset event for clean slate
+  await req('/admin/reset-event', { method: 'POST', headers: ADMIN });
+
   // Seed data
   const vols = await req('/admin/volunteers', { headers: ADMIN });
   check('Trial data exists', vols.data.volunteers?.length >= 5);

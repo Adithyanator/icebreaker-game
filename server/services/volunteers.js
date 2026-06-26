@@ -29,6 +29,7 @@ function enrichVolunteer(v) {
     progress,
     status,
     board: board ? board.cells : null,
+    completionPosition: v.completion_position,
     entries: entries.map((e) => ({
       cellIndex: e.cell_index,
       partnerId: e.partner_id,
