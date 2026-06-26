@@ -96,7 +96,7 @@ export default function VolunteerFlow() {
   if (isRevealed) {
     content = <ResultPage volunteer={volunteer} />;
   } else if (isComplete) {
-    content = <CompletionWaiting volunteer={volunteer} />;
+    content = <CompletionWaiting />;
   } else if (eventStatus === EVENT_STATES.ACTIVE || eventStatus === EVENT_STATES.PAUSED) {
     content = (
       <>
