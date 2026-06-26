@@ -38,6 +38,22 @@ export default function Overview({ data }) {
           </div>
         ))}
       </div>
+
+      {overview?.joinedLetters && overview.joinedLetters.length > 0 && (
+        <div className="card mt-4">
+          <h3 className="text-lg font-bold mb-1 text-gray-800">Joined Initials Pool</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            These are the first letters of all currently joined volunteers. Board generation pulls randomly from this list.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {overview.joinedLetters.map((letter, idx) => (
+              <div key={idx} className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-600 font-bold text-lg border border-orange-200 shadow-xs">
+                {letter}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

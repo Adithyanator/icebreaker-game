@@ -121,7 +121,14 @@ export function generateBoardForVolunteer(volunteerId) {
   if (!player) throw new Error('Volunteer not found');
 
   const allVolunteers = store.getVolunteers();
-  const otherVolunteers = allVolunteers.filter((v) => v.id !== player.id);
+  let otherVolunteers = allVolunteers.filter((v) => v.id !== player.id && v.joined);
+  
+  // Fallback: if no one has joined yet (e.g. during pre-event setup or test initialization),
+  // we use all registered volunteers so that boards can still be generated.
+  if (otherVolunteers.length === 0) {
+    otherVolunteers = allVolunteers.filter((v) => v.id !== player.id);
+  }
+
   const otherLetters = otherVolunteers
     .map((v) => v.name.trim()[0]?.toUpperCase())
     .filter(Boolean);
@@ -132,10 +139,29 @@ export function generateBoardForVolunteer(volunteerId) {
     );
   }
 
+  // Count letter frequencies in the pool of other volunteers
+  const freq = {};
+  otherLetters.forEach((l) => {
+    freq[l] = (freq[l] || 0) + 1;
+  });
+
   const cells = [];
+  const availableFreq = { ...freq };
+
   for (let i = 0; i < 9; i++) {
-    const randomLetter = otherLetters[Math.floor(Math.random() * otherLetters.length)];
-    cells.push(randomLetter);
+    const candidateLetters = Object.keys(availableFreq).filter((l) => availableFreq[l] > 0);
+    if (candidateLetters.length > 0) {
+      // Pick a random letter from candidates that still have capacity
+      const letter = candidateLetters[Math.floor(Math.random() * candidateLetters.length)];
+      cells.push(letter);
+      availableFreq[letter]--;
+    } else {
+      // Fallback: if we run out of letters because the pool is too small,
+      // we allow duplicates by selecting from any of the unique letters in the pool
+      const allLetters = Object.keys(freq);
+      const letter = allLetters[Math.floor(Math.random() * allLetters.length)];
+      cells.push(letter);
+    }
   }
 
   store.setBoard(volunteerId, cells);

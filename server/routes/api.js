@@ -325,6 +325,13 @@ router.get('/admin/backup', requireAdmin, (req, res) => {
 router.get('/admin/overview', requireAdmin, (req, res) => {
   const volunteers = getAllVolunteers();
   const event = getEventState();
+  
+  const joinedLetters = volunteers
+    .filter((v) => v.joined)
+    .map((v) => v.name.trim()[0]?.toUpperCase())
+    .filter(Boolean)
+    .sort();
+
   res.json({
     event,
     joinedCount: getJoinedCount(),
@@ -332,6 +339,7 @@ router.get('/admin/overview', requireAdmin, (req, res) => {
     playing: volunteers.filter((v) => v.status === 'playing').length,
     completed: volunteers.filter((v) => v.status === 'completed').length,
     waiting: volunteers.filter((v) => v.status === 'waiting').length,
+    joinedLetters,
   });
 });
 
