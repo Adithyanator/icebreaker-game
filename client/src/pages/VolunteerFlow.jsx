@@ -47,7 +47,14 @@ export default function VolunteerFlow() {
   useSocket('progress:update', (data) => {
     if (data.volunteerId === stored?.id) {
       setVolunteer((prev) =>
-        prev ? { ...prev, progress: data.progress, status: data.status } : prev
+        prev
+          ? {
+              ...prev,
+              progress: data.progress,
+              status: data.status,
+              completionPosition: data.completionPosition,
+            }
+          : prev
       );
     }
   });

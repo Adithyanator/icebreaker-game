@@ -11,6 +11,12 @@ export default function CompletionWaiting({ volunteer }) {
       <div className="card mt-8 w-full max-w-sm text-center">
         <p className="text-sm text-gray-500">{volunteer.name} · {volunteer.centre}</p>
         <p className="mt-1 text-lg font-semibold text-green-600">9 / 9 completed</p>
+        {volunteer.completionPosition && (
+          <div className="mt-4 rounded-2xl bg-yellow-50 border border-yellow-200 px-4 py-3 text-center shadow-xs">
+            <p className="text-xs text-yellow-700 font-semibold uppercase tracking-wider">Your Position</p>
+            <p className="text-3xl font-extrabold text-yellow-600 mt-0.5">#{volunteer.completionPosition}</p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -153,6 +153,7 @@ router.post('/volunteer/:id/cell', (req, res) => {
     volunteerId: playerId,
     progress: publicData.progress,
     status: publicData.status,
+    completionPosition: publicData.completionPosition,
   });
 
   res.json({ volunteer: publicData });
