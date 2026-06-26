@@ -121,8 +121,22 @@ export function generateBoardForVolunteer(volunteerId) {
   if (!player) throw new Error('Volunteer not found');
 
   const allVolunteers = store.getVolunteers();
-  const letterMap = buildLetterMap(allVolunteers, player.id);
-  const cells = pickBoardLetters(letterMap);
+  const otherVolunteers = allVolunteers.filter((v) => v.id !== player.id);
+  const otherLetters = otherVolunteers
+    .map((v) => v.name.trim()[0]?.toUpperCase())
+    .filter(Boolean);
+
+  if (otherLetters.length === 0) {
+    throw new Error(
+      'No other volunteers available for board generation. Add more volunteers first.'
+    );
+  }
+
+  const cells = [];
+  for (let i = 0; i < 9; i++) {
+    const randomLetter = otherLetters[Math.floor(Math.random() * otherLetters.length)];
+    cells.push(randomLetter);
+  }
 
   store.setBoard(volunteerId, cells);
   return cells;
@@ -136,36 +150,6 @@ export function generateAllBoards() {
   }));
 }
 
-function buildLetterMap(volunteers, excludeId) {
-  const map = {};
-  for (const v of volunteers) {
-    if (v.id === excludeId) continue;
-    const letter = v.name.trim()[0]?.toUpperCase();
-    if (!letter) continue;
-    if (!map[letter]) map[letter] = [];
-    map[letter].push(v);
-  }
-  return map;
-}
-
-function pickBoardLetters(letterMap) {
-  const availableLetters = Object.keys(letterMap).filter(
-    (l) => letterMap[l].length > 0
-  );
-  if (availableLetters.length === 0) {
-    throw new Error(
-      'No other volunteers available for board generation. Add more volunteers first.'
-    );
-  }
-
-  const cells = [];
-  const pool = shuffle([...availableLetters]);
-  for (let i = 0; i < 9; i++) {
-    cells.push(pool[i % pool.length]);
-  }
-  return shuffle(cells);
-}
-
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -176,6 +160,7 @@ function shuffle(arr) {
 
 export function resetVolunteerProgress(id) {
   store.deleteEntries(id);
+  store.updateVolunteer(id, { completed_at: null, completion_position: null });
   return getVolunteerById(id);
 }
 
@@ -217,5 +202,6 @@ export function getVolunteerPublic(id) {
     board: v.board,
     entries: v.entries,
     assignedColor: v.assigned_color,
+    completionPosition: v.completion_position,
   };
 }

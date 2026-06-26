@@ -1,5 +1,12 @@
 export default function LiveProgress({ volunteers }) {
-  const sorted = [...volunteers].sort((a, b) => b.progress - a.progress);
+  const sorted = [...volunteers].sort((a, b) => {
+    if (a.progress === 9 && b.progress === 9) {
+      return (a.completionPosition || 999) - (b.completionPosition || 999);
+    }
+    if (a.progress === 9) return -1;
+    if (b.progress === 9) return 1;
+    return b.progress - a.progress;
+  });
 
   return (
     <div>
@@ -8,6 +15,16 @@ export default function LiveProgress({ volunteers }) {
       <div className="space-y-2">
         {sorted.map((v) => (
           <div key={v.id} className="card flex items-center gap-4 py-3">
+            {v.progress === 9 && v.completionPosition && (
+              <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full font-bold text-sm ${
+                v.completionPosition === 1 ? 'bg-yellow-400 text-yellow-950 shadow-sm' :
+                v.completionPosition === 2 ? 'bg-slate-300 text-slate-800 shadow-sm' :
+                v.completionPosition === 3 ? 'bg-amber-600 text-white shadow-sm' :
+                'bg-blue-50 text-blue-800 border border-blue-200'
+              }`}>
+                {v.completionPosition}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="truncate font-medium">{v.name}</p>
               <p className="text-xs text-gray-500">{v.centre} · {v.code}</p>

@@ -247,6 +247,9 @@ export default function VolunteerManagement({ data, password, onRefresh, isLocke
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge[v.status]}`}>
                     {v.status.replace('_', ' ')}
                   </span>
+                  {v.completionPosition && (
+                    <span className="ml-1 text-xs text-yellow-600 font-semibold">#{v.completionPosition}</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">{v.assigned_color || '—'}</td>
                 <td className="px-4 py-3">

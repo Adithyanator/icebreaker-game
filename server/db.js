@@ -213,6 +213,8 @@ export const store = {
     state.volunteers.forEach((v) => {
       v.joined = 0;
       v.assigned_color = null;
+      v.completed_at = null;
+      v.completion_position = null;
     });
     scheduleSave();
   },

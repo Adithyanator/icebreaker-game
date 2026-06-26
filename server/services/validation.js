@@ -69,5 +69,18 @@ export function saveCellEntry(playerId, cellIndex, partner) {
     partner_centre: partner.centre,
     partner_code: partner.code,
   });
+
+  const entries = store.getEntries(playerId);
+  if (entries.length === 9) {
+    const volunteer = store.getVolunteerById(playerId);
+    if (volunteer && !volunteer.completed_at) {
+      const completedCount = store.getVolunteers().filter((v) => v.completed_at).length;
+      store.updateVolunteer(playerId, {
+        completed_at: new Date().toISOString(),
+        completion_position: completedCount + 1,
+      });
+    }
+  }
+
   return getVolunteerById(playerId);
 }
