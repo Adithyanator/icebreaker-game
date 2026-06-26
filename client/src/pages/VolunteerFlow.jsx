@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { api, getStoredVolunteer, setStoredVolunteer } from '../api';
+import { api, getStoredVolunteer, setStoredVolunteer, clearStoredVolunteer } from '../api';
 import { useSocket, joinVolunteerRoom } from '../hooks/useSocket';
 import { EVENT_STATES } from '../constants';
 import WaitingLobby from '../components/WaitingLobby';
@@ -15,6 +15,17 @@ export default function VolunteerFlow() {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  async function handleLogout() {
+    if (!volunteer?.id) return;
+    try {
+      await api.volunteerLogout(volunteer.id);
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+    clearStoredVolunteer();
+    setVolunteer(null);
+  }
 
   const refresh = useCallback(async () => {
     if (!stored?.id) return;
@@ -81,16 +92,13 @@ export default function VolunteerFlow() {
   const isComplete = volunteer?.progress >= 9;
   const isRevealed = eventStatus === EVENT_STATES.REVEALED && volunteer?.assignedColor;
 
+  let content;
   if (isRevealed) {
-    return <ResultPage volunteer={volunteer} />;
-  }
-
-  if (isComplete) {
-    return <CompletionWaiting volunteer={volunteer} />;
-  }
-
-  if (eventStatus === EVENT_STATES.ACTIVE || eventStatus === EVENT_STATES.PAUSED) {
-    return (
+    content = <ResultPage volunteer={volunteer} />;
+  } else if (isComplete) {
+    content = <CompletionWaiting volunteer={volunteer} />;
+  } else if (eventStatus === EVENT_STATES.ACTIVE || eventStatus === EVENT_STATES.PAUSED) {
+    content = (
       <>
         {eventStatus === EVENT_STATES.PAUSED && <PausedOverlay />}
         <GameBoard
@@ -102,7 +110,19 @@ export default function VolunteerFlow() {
         />
       </>
     );
+  } else {
+    content = <WaitingLobby volunteer={volunteer} event={event} onRefresh={refresh} />;
   }
 
-  return <WaitingLobby volunteer={volunteer} event={event} onRefresh={refresh} />;
+  return (
+    <div className="relative min-h-screen">
+      <button
+        onClick={handleLogout}
+        className="absolute top-4 right-4 z-40 rounded-xl bg-white/80 backdrop-blur-xs px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200/50 shadow-xs hover:bg-gray-50 active:scale-95 transition"
+      >
+        Exit Game
+      </button>
+      {content}
+    </div>
+  );
 }

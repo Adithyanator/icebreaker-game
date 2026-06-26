@@ -24,6 +24,9 @@ export const api = {
 
   getVolunteer: (id) => request(`/volunteer/${id}`),
 
+  volunteerLogout: (id) =>
+    request('/volunteer/logout', { method: 'POST', body: JSON.stringify({ id }) }),
+
   submitCell: (id, data) =>
     request(`/volunteer/${id}/cell`, { method: 'POST', body: JSON.stringify(data) }),
 

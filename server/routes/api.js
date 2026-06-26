@@ -123,6 +123,26 @@ router.post('/volunteer/select', (req, res) => {
   res.json({ volunteer: updated, event: getEventState() });
 });
 
+router.post('/volunteer/logout', (req, res) => {
+  const { id } = req.body;
+  if (!id) {
+    return res.status(400).json({ error: 'Volunteer ID is required.' });
+  }
+
+  const volunteer = getVolunteerById(id);
+  if (!volunteer) {
+    return res.status(404).json({ error: 'Volunteer not found.' });
+  }
+
+  store.updateVolunteer(id, { joined: 0 });
+
+  const io = getIo(req);
+  io?.emit('joined:update', { joinedCount: getJoinedCount() });
+  io?.emit('admin:update', { type: 'volunteer_logged_out' });
+
+  res.json({ ok: true });
+});
+
 router.get('/volunteer/:id', (req, res) => {
   const volunteer = getVolunteerPublic(parseInt(req.params.id, 10));
   if (!volunteer) {
