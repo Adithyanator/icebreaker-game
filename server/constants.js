@@ -5,10 +5,8 @@ export const TEAM_COLORS = [
   'Blue',
   'Green',
   'Yellow',
-  'Purple',
-  'Orange',
   'Pink',
-  'White',
+  'Grey',
 ];
 
 export const ADMIN_PASSWORD = 'ui-icebreaker-2026';
