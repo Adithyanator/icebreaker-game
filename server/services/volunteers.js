@@ -198,13 +198,11 @@ export function resetAllProgress() {
 }
 
 export function assignColorsEvenly() {
-  const completed = store.getVolunteers().filter((v) => {
-    return store.getEntries(v.id).length === 9;
-  });
+  const participants = store.getVolunteers().filter((v) => v.joined);
 
-  if (completed.length === 0) return [];
+  if (participants.length === 0) return [];
 
-  const shuffled = shuffle([...completed]);
+  const shuffled = shuffle([...participants]);
   const assignments = [];
 
   shuffled.forEach((v, i) => {
