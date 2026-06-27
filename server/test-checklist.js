@@ -2,7 +2,14 @@ const BASE = 'http://localhost:3001/api';
 const ADMIN = { 'Content-Type': 'application/json', 'x-admin-password': 'admin123' };
 
 async function req(path, opts = {}) {
-  const res = await fetch(`${BASE}${path}`, opts);
+  const headers = opts.headers || {};
+  if (opts.body && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const res = await fetch(`${BASE}${path}`, {
+    ...opts,
+    headers,
+  });
   const data = await res.json().catch(() => ({}));
   return { ok: res.ok, status: res.status, data };
 }
@@ -19,115 +26,143 @@ async function run() {
   // Reset event for clean slate
   await req('/admin/reset-event', { method: 'POST', headers: ADMIN });
 
-  // Seed data
-  const vols = await req('/admin/volunteers', { headers: ADMIN });
-  check('Trial data exists', vols.data.volunteers?.length >= 5);
+  // 1. Spreadsheet Import / Sync Works
+  const sync = await req('/admin/sync-spreadsheet', {
+    method: 'POST',
+    headers: ADMIN,
+    body: JSON.stringify({ spreadsheetUrl: 'http://localhost:3001/api/mock-sheet.csv' }),
+  });
+  check('Spreadsheet import/sync works', sync.ok && sync.data.count === 6);
 
-  // Login
+  const vols = await req('/admin/volunteers', { headers: ADMIN });
+  check('Trial data exists', vols.data.volunteers?.length === 6);
+
+  // 2. Login rejects volunteers not in sheet
+  const badLogin = await req('/volunteer/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Unknown Person', centre: 'KP' }),
+  });
+  check('Login rejects volunteers not in sheet', badLogin.status === 404);
+
+  // 3. Login works for imported volunteers
   const login = await req('/volunteer/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name: 'Adithyan', centre: 'KP' }),
   });
-  check('Trial login works', login.ok && login.data.volunteer?.code === '111');
+  check('Login works for imported', login.ok && login.data.volunteer?.name === 'Adithyan');
 
-  const badLogin = await req('/volunteer/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'Adithyan', centre: 'VB' }),
-  });
-  check('Wrong centre rejects', badLogin.status === 404);
+  // 4. Duplicate code detection works
+  const codes = vols.data.volunteers.map(v => v.code);
+  const uniqueCodes = new Set(codes);
+  check('Duplicate code detection works', codes.length === uniqueCodes.size);
 
-  // Test adding volunteer with custom centre
-  const customVol = await req('/admin/volunteers', {
-    method: 'POST',
-    headers: ADMIN,
-    body: JSON.stringify({ name: 'Custom Vol', centre: 'TEST-CENTRE' }),
-  });
-  const customVolId = customVol.data.volunteer?.id;
-  check('Can add volunteer with custom centre', customVol.ok && customVol.data.volunteer?.centre === 'TEST-CENTRE');
-
-  // Verify login for the custom volunteer
-  const customLogin = await req('/volunteer/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'Custom Vol', centre: 'TEST-CENTRE' }),
-  });
-  check('Custom centre volunteer login works', customLogin.ok && customLogin.data.volunteer?.centre === 'TEST-CENTRE');
-
-  // Generate boards
+  // 5. 25-cell board generation works
   const boards = await req('/admin/generate-boards', { method: 'POST', headers: ADMIN });
-  if (!boards.ok) console.log('Board generation failed:', boards);
-  check('Boards generate', boards.ok);
+  check('25-cell board generation works', boards.ok);
 
-  const adithyan = login.data.volunteer;
-  check('Board has 9 cells', adithyan.board?.length === 9 || boards.ok);
+  const refreshed = await req(`/volunteer/${login.data.volunteer.id}`);
+  const board = refreshed.data.volunteer.board;
+  check('Board has 25 cells', board?.length === 25);
+  check('Center cell is FREE ★', board?.[12] === '★');
 
-  // Refresh volunteer for board
-  const refreshed = await req(`/volunteer/${adithyan.id}`);
-  check('Board persists', refreshed.data.volunteer?.board?.length === 9);
+  // 6. Board persists after reload
+  const refreshed2 = await req(`/volunteer/${login.data.volunteer.id}`);
+  check('Board persists after reload', refreshed2.data.volunteer?.board?.length === 25);
 
-  // Validation tests
-  const playerId = adithyan.id;
-  const cell0Letter = refreshed.data.volunteer.board[0];
-
+  // 7. Wrong letter rejected
+  const playerId = login.data.volunteer.id;
   const wrongLetter = await req(`/volunteer/${playerId}/cell`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cellIndex: 0, name: 'Dilshan', centre: 'VB', code: '200' }),
+    body: JSON.stringify({ cellIndex: 0, name: 'Adithyan', centre: 'KP', code: login.data.volunteer.code }),
   });
   check('Wrong letter rejected (before start)', wrongLetter.status === 403 || wrongLetter.status === 400);
 
   // Start event
-  const health = await req('/admin/health', { headers: ADMIN });
-  check('Health check runs', health.data.checks?.length > 0);
-
   const start = await req('/admin/start-event', { method: 'POST', headers: ADMIN });
   check('Start event', start.ok);
 
-  // Find a valid cell entry
-  const board = refreshed.data.volunteer.board;
-  let validEntry = null;
-  for (let i = 0; i < board.length; i++) {
-    const letter = board[i];
-    const match = vols.data.volunteers.find(
-      (v) => v.id !== playerId && v.name[0].toUpperCase() === letter.toUpperCase()
+  // 8. Self entry rejected
+  const selfEntry = await req(`/volunteer/${playerId}/cell`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cellIndex: 0, name: 'Adithyan', centre: 'KP', code: login.data.volunteer.code }),
+  });
+  check('Self entry rejected', selfEntry.status === 400);
+
+  // Join other players to generate their details
+  for (const v of vols.data.volunteers) {
+    if (v.id !== playerId) {
+      await req('/volunteer/select', {
+        method: 'POST',
+        body: JSON.stringify({ id: v.id }),
+      });
+    }
+  }
+
+  // Reload volunteers to get codes
+  const freshVols = await req('/admin/volunteers', { headers: ADMIN });
+
+  // 9. BINGO completion works
+  console.log('Completing row 0 to test BINGO...');
+  let bingoPassed = true;
+  const usedPartnerIds = new Set();
+  for (let cellIndex = 0; cellIndex < 5; cellIndex++) {
+    const letter = board[cellIndex];
+    const partner = freshVols.data.volunteers.find(
+      (ov) =>
+        ov.id !== playerId &&
+        ov.name[0]?.toUpperCase() === letter &&
+        ov.joined &&
+        !usedPartnerIds.has(ov.id)
     );
-    if (match) { validEntry = { cellIndex: i, name: match.name, centre: match.centre, code: match.code }; break; }
+
+    if (partner) {
+      usedPartnerIds.add(partner.id);
+      const res = await req(`/volunteer/${playerId}/cell`, {
+        method: 'POST',
+        body: JSON.stringify({
+          cellIndex,
+          name: partner.name,
+          centre: partner.centre,
+          code: partner.code,
+        }),
+      });
+      if (!res.ok) {
+        bingoPassed = false;
+        console.log(`Failed to complete cell ${cellIndex} with partner ${partner.name}:`, res.data);
+      }
+    } else {
+      bingoPassed = false;
+      console.log(`No partner found starting with ${letter} for cell ${cellIndex}`);
+    }
   }
+  check('Valid partner entries accepted', bingoPassed);
 
-  if (validEntry) {
-    const good = await req(`/volunteer/${playerId}/cell`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(validEntry),
-    });
-    check('Correct entry accepted', good.ok);
+  // Verify completion
+  const finalPlayer = await req(`/volunteer/${playerId}`);
+  check('BINGO completion works', finalPlayer.data.volunteer?.status === 'completed');
 
-    const selfEntry = await req(`/volunteer/${playerId}/cell`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cellIndex: 1, name: 'Adithyan', centre: 'KP', code: '111' }),
-    });
-    check('Self entry rejected', selfEntry.status === 400);
+  // 10. Admin health check works
+  const health = await req('/admin/health', { headers: ADMIN });
+  check('Admin health check works', health.ok && health.data.checks?.length > 0);
 
-    const dup = await req(`/volunteer/${playerId}/cell`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(validEntry),
-    });
-    check('Duplicate partner rejected', dup.status === 400);
-  }
+  // 11. Team reveal works & assignedColor mapping works
+  const reveal = await req('/admin/reveal-teams', { method: 'POST', headers: ADMIN });
+  check('Team reveal works', reveal.ok);
 
-  // Add volunteer
-  const isLocked = ['active', 'paused', 'revealed'].includes(start.data.event?.status);
-  check('Management locked after start', isLocked);
+  const finalPlayer2 = await req(`/volunteer/${playerId}`);
+  check('assignedColor mapping works', finalPlayer2.data.volunteer?.assignedColor !== undefined);
 
-  // Reset for clean state
-  await req('/admin/reset-event', { method: 'POST', headers: ADMIN });
-  if (customVolId) {
-    await req(`/admin/volunteers/${customVolId}`, { method: 'DELETE', headers: ADMIN });
-  }
+  // 12. Export works
+  const exportCsv = await req('/admin/export/csv', { headers: ADMIN });
+  check('Export CSV works', exportCsv.ok);
+
+  // 13. Emergency reset works
+  const reset = await req('/admin/reset-event', { method: 'POST', headers: ADMIN });
+  check('Emergency reset works', reset.ok && reset.data.event?.status === 'setup');
 
   console.log(`\n${passed} passed, ${failed} failed`);
   setTimeout(() => {

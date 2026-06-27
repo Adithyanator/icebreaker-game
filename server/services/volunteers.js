@@ -20,7 +20,11 @@ function enrichVolunteer(v) {
   const progress = entries.length;
   let status = 'not_joined';
   if (v.joined) {
-    status = progress === 0 ? 'waiting' : progress < 9 ? 'playing' : 'completed';
+    if (v.completed_at) {
+      status = 'completed';
+    } else {
+      status = progress === 0 ? 'waiting' : 'playing';
+    }
   }
   return {
     ...v,
@@ -116,7 +120,7 @@ export function getCentres() {
 
 export function generateBoardForVolunteer(volunteerId) {
   const existing = store.getBoard(volunteerId);
-  if (existing) return existing.cells;
+  if (existing && existing.cells?.length === 25) return existing.cells;
 
   const player = store.getVolunteerById(volunteerId);
   if (!player) throw new Error('Volunteer not found');
@@ -124,8 +128,6 @@ export function generateBoardForVolunteer(volunteerId) {
   const allVolunteers = store.getVolunteers();
   let otherVolunteers = allVolunteers.filter((v) => v.id !== player.id && v.joined);
   
-  // Fallback: if no one has joined yet (e.g. during pre-event setup or test initialization),
-  // we use all registered volunteers so that boards can still be generated.
   if (otherVolunteers.length === 0) {
     otherVolunteers = allVolunteers.filter((v) => v.id !== player.id);
   }
@@ -140,7 +142,6 @@ export function generateBoardForVolunteer(volunteerId) {
     );
   }
 
-  // Count letter frequencies in the pool of other volunteers
   const freq = {};
   otherLetters.forEach((l) => {
     freq[l] = (freq[l] || 0) + 1;
@@ -149,16 +150,17 @@ export function generateBoardForVolunteer(volunteerId) {
   const cells = [];
   const availableFreq = { ...freq };
 
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 25; i++) {
+    if (i === 12) {
+      cells.push('★');
+      continue;
+    }
     const candidateLetters = Object.keys(availableFreq).filter((l) => availableFreq[l] > 0);
     if (candidateLetters.length > 0) {
-      // Pick a random letter from candidates that still have capacity
       const letter = candidateLetters[Math.floor(Math.random() * candidateLetters.length)];
       cells.push(letter);
       availableFreq[letter]--;
     } else {
-      // Fallback: if we run out of letters because the pool is too small,
-      // we allow duplicates by selecting from any of the unique letters in the pool
       const allLetters = Object.keys(freq);
       const letter = allLetters[Math.floor(Math.random() * allLetters.length)];
       cells.push(letter);
@@ -230,4 +232,114 @@ export function getVolunteerPublic(id) {
     assignedColor: v.assigned_color,
     completionPosition: v.completion_position,
   };
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  return result.map(s => s.replace(/^"|"$/g, '').trim());
+}
+
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/);
+  if (lines.length === 0) return [];
+  
+  const headers = parseCSVLine(lines[0]);
+  const nameIdx = headers.findIndex(h => h.toLowerCase().includes('name'));
+  const centreIdx = headers.findIndex(h => h.toLowerCase().includes('centre') || h.toLowerCase().includes('center') || h.toLowerCase().includes('branch'));
+  
+  if (nameIdx === -1) {
+    throw new Error('Spreadsheet must contain a "Name" column.');
+  }
+  if (centreIdx === -1) {
+    throw new Error('Spreadsheet must contain a "Centre" or "Center" column.');
+  }
+  
+  const volunteers = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cols = parseCSVLine(line);
+    if (cols.length <= Math.max(nameIdx, centreIdx)) continue;
+    
+    const name = cols[nameIdx]?.trim();
+    const centre = cols[centreIdx]?.trim().toUpperCase();
+    if (name && centre) {
+      volunteers.push({ name, centre });
+    }
+  }
+  return volunteers;
+}
+
+export async function syncVolunteersFromSpreadsheet(rawUrl) {
+  if (!rawUrl) throw new Error('Spreadsheet URL is required');
+
+  let csvUrl = rawUrl.trim();
+  if (csvUrl.includes('docs.google.com/spreadsheets')) {
+    const match = csvUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (match) {
+      const spreadsheetId = match[1];
+      csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
+    }
+  }
+
+  const res = await fetch(csvUrl);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch spreadsheet: ${res.statusText}`);
+  }
+  const text = await res.text();
+
+  const parsed = parseCSV(text);
+  if (parsed.length === 0) {
+    throw new Error('No valid volunteer records found in the spreadsheet.');
+  }
+
+  const existingVols = store.getVolunteers();
+  const keepVols = [];
+
+  for (const item of parsed) {
+    const cleanName = item.name.trim();
+    const cleanCentre = item.centre.trim().toUpperCase();
+
+    if (keepVols.some(kv => kv.name.toLowerCase() === cleanName.toLowerCase() && kv.centre === cleanCentre)) {
+      continue;
+    }
+
+    const existing = existingVols.find(
+      (v) => v.name.toLowerCase() === cleanName.toLowerCase() && v.centre === cleanCentre
+    );
+
+    if (existing) {
+      keepVols.push(existing);
+    } else {
+      const code = generateUniqueCode();
+      const newVol = {
+        id: store.getNextVolunteerId(),
+        name: cleanName,
+        centre: cleanCentre,
+        code,
+        is_seed: 0,
+        joined: 0,
+        assigned_color: null,
+        created_at: new Date().toISOString(),
+      };
+      keepVols.push(newVol);
+    }
+  }
+
+  store.syncVolunteers(keepVols);
+  return keepVols.length;
 }

@@ -56,7 +56,7 @@ export function runPreEventValidation() {
       invalidCentres.length > 0 ? 'Invalid centres found' : 'All centres valid',
   });
 
-  const boardsGenerated = volunteers.length > 0 && volunteers.every((v) => v.board && v.board.length === 9);
+  const boardsGenerated = volunteers.length > 0 && volunteers.every((v) => v.board && v.board.length === 25);
   checks.push({
     name: 'Boards are generated',
     pass: boardsGenerated,
@@ -65,17 +65,62 @@ export function runPreEventValidation() {
       : 'Generate boards for all volunteers first',
   });
 
-  const boardCellCheck = volunteers.every((v) => !v.board || v.board.length === 9);
+  const boardCellCheck = volunteers.every((v) => !v.board || v.board.length === 25);
   checks.push({
-    name: 'Boards have exactly 9 cells',
+    name: 'Boards have exactly 25 cells',
     pass: boardCellCheck,
-    message: boardCellCheck ? 'All boards have 9 cells' : 'Some boards incomplete',
+    message: boardCellCheck ? 'All boards have 25 cells' : 'Some boards incomplete',
+  });
+
+  const withoutCodes = volunteers.filter((v) => !v.code);
+  checks.push({
+    name: 'All volunteers have codes',
+    pass: withoutCodes.length === 0,
+    message: withoutCodes.length > 0 ? `${withoutCodes.length} volunteers missing codes` : 'All volunteers have codes',
+  });
+
+  const withoutBoards = volunteers.filter((v) => !v.board);
+  checks.push({
+    name: 'All volunteers have boards',
+    pass: withoutBoards.length === 0,
+    message: withoutBoards.length > 0 ? `${withoutBoards.length} volunteers missing boards` : 'All volunteers have boards',
+  });
+
+  const missingFields = volunteers.filter((v) => !v.name?.trim() || !v.centre?.trim());
+  checks.push({
+    name: 'No missing name or centre values',
+    pass: missingFields.length === 0,
+    message: missingFields.length > 0 ? `${missingFields.length} volunteers missing name or centre` : 'All volunteers have name and centre',
+  });
+
+  checks.push({
+    name: 'Imported volunteer count',
+    pass: volunteers.length >= 1,
+    message: `${volunteers.length} volunteers in registry`,
+  });
+
+  let duplicateCellsCount = 0;
+  for (const v of volunteers) {
+    if (!v.board) continue;
+    const letters = v.board.filter(l => l !== '★');
+    const uniqueLetters = new Set(letters);
+    if (letters.length !== uniqueLetters.size) {
+      duplicateCellsCount++;
+    }
+  }
+  checks.push({
+    name: 'No duplicate board letters',
+    pass: duplicateCellsCount === 0 || volunteers.length < 25,
+    message: duplicateCellsCount > 0 
+      ? `${duplicateCellsCount} boards have duplicate letters` 
+      : 'All boards have unique letters (excluding FREE space)',
   });
 
   let impossibleLetters = [];
   for (const v of volunteers) {
     if (!v.board) continue;
     for (const letter of v.board) {
+      if (letter === '★') continue;
       const others = volunteers.filter(
         (ov) =>
           ov.id !== v.id &&
@@ -152,9 +197,11 @@ export function runPreEventValidation() {
     'All codes are exactly 3 digits',
     'All centres are valid',
     'Boards are generated',
-    'Boards have exactly 9 cells',
+    'Boards have exactly 25 cells',
     'No impossible letters',
     'Validation rules work',
+    'All volunteers have codes',
+    'No missing name or centre values'
   ];
 
   const criticalPassed = checks

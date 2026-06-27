@@ -19,6 +19,7 @@ const DEFAULT_STATE = {
     started_at: null,
     revealed_at: null,
     updated_at: new Date().toISOString(),
+    spreadsheet_url: '',
   },
   nextVolunteerId: 1,
   nextBoardId: 1,
@@ -134,6 +135,24 @@ export const store = {
     state.volunteers.push(v);
     scheduleSave();
     return v;
+  },
+
+  getNextVolunteerId: () => {
+    getDb();
+    return state.nextVolunteerId++;
+  },
+
+  syncVolunteers: (volList) => {
+    getDb();
+    state.volunteers = volList;
+    const keepIds = new Set(volList.map((v) => v.id));
+    state.boards = state.boards.filter((b) => keepIds.has(b.volunteer_id));
+    state.cellEntries = state.cellEntries.filter(
+      (e) => keepIds.has(e.volunteer_id) && keepIds.has(e.partner_id)
+    );
+    const maxId = volList.reduce((max, v) => (v.id > max ? v.id : max), 0);
+    state.nextVolunteerId = maxId + 1;
+    scheduleSave();
   },
 
   updateVolunteer: (id, updates) => {

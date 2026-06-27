@@ -89,7 +89,7 @@ export default function VolunteerFlow() {
   }
 
   const eventStatus = event?.status || EVENT_STATES.SETUP;
-  const isComplete = volunteer?.progress >= 9;
+  const isComplete = volunteer?.status === 'completed';
   const isRevealed = eventStatus === EVENT_STATES.REVEALED && volunteer?.assignedColor;
 
   let content;

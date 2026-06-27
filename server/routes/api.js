@@ -18,6 +18,7 @@ import {
   getVolunteerPublic,
   getJoinedCount,
   getCentres,
+  syncVolunteersFromSpreadsheet,
 } from '../services/volunteers.js';
 import { validateCellEntry, saveCellEntry } from '../services/validation.js';
 import {
@@ -46,6 +47,10 @@ function isEventLocked() {
 function getIo(req) {
   return req.app.get('io');
 }
+
+router.get('/mock-sheet.csv', (req, res) => {
+  res.send(`Name,Centre\nAdithyan,KP\nDilshan,VB\nKalyani,PB\nSreyaa,STC\nAqsa,EJ\nSync Volunteer,VB`);
+});
 
 // Public routes
 router.get('/event', (req, res) => {
@@ -322,6 +327,32 @@ router.post('/admin/reset-event', requireAdmin, (req, res) => {
   getIo(req)?.emit('event:update', { status: event.status });
   getIo(req)?.emit('admin:update', { type: 'event_reset' });
   res.json({ event });
+});
+
+router.post('/admin/sync-spreadsheet', requireAdmin, async (req, res) => {
+  try {
+    const { spreadsheetUrl } = req.body;
+    if (!spreadsheetUrl) {
+      return res.status(400).json({ error: 'Spreadsheet URL is required.' });
+    }
+    updateEventState({ spreadsheet_url: spreadsheetUrl });
+    const count = await syncVolunteersFromSpreadsheet(spreadsheetUrl);
+    getIo(req)?.emit('admin:update', { type: 'spreadsheet_synced', count });
+    res.json({ ok: true, count });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.post('/admin/save-settings', requireAdmin, (req, res) => {
+  try {
+    const { spreadsheetUrl } = req.body;
+    const updated = updateEventState({ spreadsheet_url: spreadsheetUrl });
+    getIo(req)?.emit('admin:update', { type: 'settings_updated', event: updated });
+    res.json({ ok: true, event: updated });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
 });
 
 router.get('/admin/health', requireAdmin, (req, res) => {

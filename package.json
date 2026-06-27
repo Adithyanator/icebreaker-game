@@ -6,7 +6,9 @@
     "install:all": "npm install --prefix server && npm install --prefix client",
     "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
     "build": "npm run build --prefix client",
-    "start": "npm run build --prefix client && npm start --prefix server"
+    "start": "npm run build --prefix client && npm start --prefix server",
+    "test": "node server/test-checklist.js",
+    "load:test": "node scripts/load-test-80-users.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

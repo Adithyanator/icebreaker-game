@@ -1,10 +1,12 @@
 export default function LiveProgress({ volunteers }) {
   const sorted = [...volunteers].sort((a, b) => {
-    if (a.progress === 9 && b.progress === 9) {
+    const aComp = a.status === 'completed';
+    const bComp = b.status === 'completed';
+    if (aComp && bComp) {
       return (a.completionPosition || 999) - (b.completionPosition || 999);
     }
-    if (a.progress === 9) return -1;
-    if (b.progress === 9) return 1;
+    if (aComp) return -1;
+    if (bComp) return 1;
     return b.progress - a.progress;
   });
 
@@ -15,7 +17,7 @@ export default function LiveProgress({ volunteers }) {
       <div className="space-y-2">
         {sorted.map((v) => (
           <div key={v.id} className="card flex items-center gap-4 py-3">
-            {v.progress === 9 && v.completionPosition && (
+            {v.status === 'completed' && v.completionPosition && (
               <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full font-bold text-sm ${
                 v.completionPosition === 1 ? 'bg-yellow-400 text-yellow-950 shadow-sm' :
                 v.completionPosition === 2 ? 'bg-slate-300 text-slate-800 shadow-sm' :
@@ -31,15 +33,15 @@ export default function LiveProgress({ volunteers }) {
             </div>
             <div className="w-32">
               <div className="mb-1 flex justify-between text-xs">
-                <span>{v.progress}/9</span>
-                <span>{Math.round((v.progress / 9) * 100)}%</span>
+                <span>{v.progress}/24</span>
+                <span>{Math.round((v.progress / 24) * 100)}%</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                 <div
                   className={`h-full rounded-full transition-all ${
-                    v.progress === 9 ? 'bg-green-500' : 'bg-brand-orange'
+                    v.status === 'completed' ? 'bg-green-500' : 'bg-brand-orange'
                   }`}
-                  style={{ width: `${(v.progress / 9) * 100}%` }}
+                  style={{ width: `${(v.progress / 24) * 100}%` }}
                 />
               </div>
             </div>

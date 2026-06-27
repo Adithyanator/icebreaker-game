@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Plus, Search, Pencil, Trash2, RefreshCw, Grid3x3 } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, Search, Pencil, Trash2, RefreshCw, Grid3x3, RefreshCw as SyncIcon } from 'lucide-react';
 import { api } from '../../../api';
 import { CENTRES } from '../../../constants';
 
@@ -12,6 +12,16 @@ export default function VolunteerManagement({ data, password, onRefresh, isLocke
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCustomCentre, setShowCustomCentre] = useState(false);
+
+  const [spreadsheetUrl, setSpreadsheetUrl] = useState('');
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => {
+    if (data?.event?.spreadsheet_url) {
+      setSpreadsheetUrl(data.event.spreadsheet_url);
+    }
+  }, [data?.event?.spreadsheet_url]);
 
   const volunteers = useMemo(() => {
     let list = data?.volunteers || [];
@@ -31,6 +41,25 @@ export default function VolunteerManagement({ data, password, onRefresh, isLocke
     CENTRES.forEach((c) => set.add(c));
     return Array.from(set).sort();
   }, [data?.volunteers]);
+
+  async function handleSync(e) {
+    e.preventDefault();
+    if (!spreadsheetUrl) return;
+    setSyncing(true);
+    setSyncStatus(null);
+    try {
+      const res = await api.adminRequest('/admin/sync-spreadsheet', {
+        method: 'POST',
+        body: JSON.stringify({ spreadsheetUrl }),
+      }, password);
+      setSyncStatus({ success: true, count: res.count });
+      onRefresh();
+    } catch (err) {
+      setSyncStatus({ success: false, error: err.message });
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   async function handleAdd(e) {
     e.preventDefault();
@@ -135,6 +164,38 @@ export default function VolunteerManagement({ data, password, onRefresh, isLocke
         >
           <Plus className="h-4 w-4" /> Add Volunteer
         </button>
+      </div>
+
+      <div className="card mb-6">
+        <h3 className="mb-2 font-bold text-gray-800">Google Spreadsheet Integration</h3>
+        <p className="mb-4 text-xs text-gray-500">
+          Sync the official volunteer list from a public Google Spreadsheet. Sharing settings must be set to "Anyone with the link can view".
+        </p>
+        <form onSubmit={handleSync} className="flex gap-2 flex-wrap">
+          <input
+            className="input-field flex-1 min-w-[250px] text-sm"
+            placeholder="Google Spreadsheet URL..."
+            value={spreadsheetUrl}
+            onChange={(e) => setSpreadsheetUrl(e.target.value)}
+            disabled={isLocked || syncing}
+          />
+          <button
+            type="submit"
+            disabled={isLocked || syncing || !spreadsheetUrl}
+            className="rounded-xl bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white transition active:scale-95 hover:bg-brand-blue/90 disabled:opacity-50"
+          >
+            {syncing ? 'Syncing...' : 'Sync Registry'}
+          </button>
+        </form>
+        {syncStatus && (
+          <div className={`mt-3 rounded-lg px-3 py-2 text-xs font-semibold ${
+            syncStatus.success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+          }`}>
+            {syncStatus.success
+              ? `Sync successful! ${syncStatus.count} volunteers loaded.`
+              : `Sync failed: ${syncStatus.error}`}
+          </div>
+        )}
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -242,7 +303,7 @@ export default function VolunteerManagement({ data, password, onRefresh, isLocke
                 <td className="px-4 py-3">{v.centre}</td>
                 <td className="px-4 py-3 font-mono">{v.code}</td>
                 <td className="px-4 py-3">{v.joined ? '✓' : '—'}</td>
-                <td className="px-4 py-3">{v.progress}/9</td>
+                <td className="px-4 py-3">{v.progress}/24</td>
                 <td className="px-4 py-3">
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge[v.status]}`}>
                     {v.status.replace('_', ' ')}
