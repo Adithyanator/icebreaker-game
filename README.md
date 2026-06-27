@@ -46,7 +46,7 @@ Serves the built frontend from the Express server on http://localhost:3001
 ## Admin Access
 
 - **URL**: `/admin`
-- **Password**: `ui-icebreaker-2026`
+- **Password**: `admin123`
 
 ## Trial Volunteers
 

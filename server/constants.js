@@ -9,7 +9,7 @@ export const TEAM_COLORS = [
   'Grey',
 ];
 
-export const ADMIN_PASSWORD = 'ui-icebreaker-2026';
+export const ADMIN_PASSWORD = 'admin123';
 
 export const SEED_VOLUNTEERS = [
   { name: 'Adithyan', centre: 'KP', code: '111', is_seed: 1 },

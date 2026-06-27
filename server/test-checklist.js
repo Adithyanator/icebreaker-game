@@ -1,5 +1,5 @@
 const BASE = 'http://localhost:3001/api';
-const ADMIN = { 'Content-Type': 'application/json', 'x-admin-password': 'ui-icebreaker-2026' };
+const ADMIN = { 'Content-Type': 'application/json', 'x-admin-password': 'admin123' };
 
 async function req(path, opts = {}) {
   const res = await fetch(`${BASE}${path}`, opts);
