@@ -88,7 +88,6 @@ async function run() {
     const completedSet = new Set(data.volunteer.entries?.map(e => e.cellIndex) || []);
     
     for (let cellIndex = 0; cellIndex < 25; cellIndex++) {
-      if (cellIndex === 12) continue; // Skip FREE space
       if (completedSet.has(cellIndex)) continue;
 
       const letter = board[cellIndex];

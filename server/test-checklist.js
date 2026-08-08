@@ -65,7 +65,7 @@ async function run() {
   const refreshed = await req(`/volunteer/${login.data.volunteer.id}`);
   const board = refreshed.data.volunteer.board;
   check('Board has 25 cells', board?.length === 25);
-  check('Center cell is FREE ★', board?.[12] === '★');
+  check('All 25 board cells have letters', board?.every(l => typeof l === 'string' && l !== '★'));
 
   // 6. Board persists after reload
   const refreshed2 = await req(`/volunteer/${login.data.volunteer.id}`);

@@ -142,28 +142,97 @@ export function generateBoardForVolunteer(volunteerId) {
     );
   }
 
+  // Calculate volunteer frequency per initial letter
   const freq = {};
   otherLetters.forEach((l) => {
     freq[l] = (freq[l] || 0) + 1;
   });
 
-  const cells = [];
-  const availableFreq = { ...freq };
+  const uniqueLetters = Object.keys(freq);
+  const totalPlayable = 25; // All 25 cells are playable letter cells
+
+  // 1. Build balanced letter pool for 25 cells
+  const pool = [];
+  if (uniqueLetters.length > 0) {
+    const baseQuota = Math.floor(totalPlayable / uniqueLetters.length);
+    const remainder = totalPlayable % uniqueLetters.length;
+
+    uniqueLetters.forEach((letter) => {
+      for (let i = 0; i < baseQuota; i++) {
+        pool.push(letter);
+      }
+    });
+
+    if (remainder > 0) {
+      const sortedByFreq = [...uniqueLetters].sort((a, b) => freq[b] - freq[a]);
+      for (let i = 0; i < remainder; i++) {
+        pool.push(sortedByFreq[i % sortedByFreq.length]);
+      }
+    }
+  }
+
+  shuffle(pool);
+
+  // 2. Place letters into 5x5 grid (all 25 cells)
+  const cells = new Array(25).fill(null);
+
+  const remainingPool = [...pool];
+
+  const getRowCounts = (rowIndex) => {
+    const counts = {};
+    for (let c = 0; c < 5; c++) {
+      const idx = rowIndex * 5 + c;
+      if (cells[idx]) {
+        counts[cells[idx]] = (counts[cells[idx]] || 0) + 1;
+      }
+    }
+    return counts;
+  };
 
   for (let i = 0; i < 25; i++) {
-    if (i === 12) {
-      cells.push('★');
-      continue;
+    const rowIndex = Math.floor(i / 5);
+    const rowCounts = getRowCounts(rowIndex);
+
+    const topIdx = i >= 5 ? i - 5 : -1;
+    const leftIdx = i % 5 !== 0 ? i - 1 : -1;
+
+    const topVal = topIdx >= 0 ? cells[topIdx] : null;
+    const leftVal = leftIdx >= 0 ? cells[leftIdx] : null;
+
+    // Prefer candidates that are non-adjacent and stay under the row cap (freq[letter])
+    let validCandidates = remainingPool.filter((letter) => {
+      const notAdjacent = letter !== topVal && letter !== leftVal;
+      const rowCount = rowCounts[letter] || 0;
+      const underRowCap = rowCount < (freq[letter] || 1);
+      return notAdjacent && underRowCap;
+    });
+
+    // Relax adjacency if needed while preserving row cap
+    if (validCandidates.length === 0) {
+      validCandidates = remainingPool.filter((letter) => {
+        const rowCount = rowCounts[letter] || 0;
+        return rowCount < (freq[letter] || 1);
+      });
     }
-    const candidateLetters = Object.keys(availableFreq).filter((l) => availableFreq[l] > 0);
-    if (candidateLetters.length > 0) {
-      const letter = candidateLetters[Math.floor(Math.random() * candidateLetters.length)];
-      cells.push(letter);
-      availableFreq[letter]--;
-    } else {
-      const allLetters = Object.keys(freq);
-      const letter = allLetters[Math.floor(Math.random() * allLetters.length)];
-      cells.push(letter);
+
+    // Relax row cap if needed while avoiding adjacency
+    if (validCandidates.length === 0) {
+      validCandidates = remainingPool.filter(
+        (letter) => letter !== topVal && letter !== leftVal
+      );
+    }
+
+    // Ultimate fallback
+    if (validCandidates.length === 0) {
+      validCandidates = [...remainingPool];
+    }
+
+    const chosenLetter = validCandidates[Math.floor(Math.random() * validCandidates.length)];
+    cells[i] = chosenLetter;
+
+    const removeIdx = remainingPool.indexOf(chosenLetter);
+    if (removeIdx !== -1) {
+      remainingPool.splice(removeIdx, 1);
     }
   }
 

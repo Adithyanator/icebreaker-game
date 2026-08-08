@@ -15,35 +15,25 @@ export default function GameBoard({ volunteer, onUpdate }) {
             <p className="text-sm text-gray-500">{volunteer.centre} · Code {volunteer.code}</p>
           </div>
           <div className="rounded-xl bg-brand-blue-light px-3 py-1.5 text-sm font-semibold text-brand-blue">
-            {completedSet.size + 1} / 25
+            {completedSet.size} / 25
           </div>
         </div>
 
         <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
           {volunteer.board?.map((letter, index) => {
-            const isFreeSpace = index === 12;
-            const done = isFreeSpace || completedSet.has(index);
+            const done = completedSet.has(index);
             return (
               <button
                 key={index}
                 onClick={() => !done && setActiveCell(index)}
                 disabled={done}
                 className={`relative flex aspect-square flex-col items-center justify-center rounded-xl text-xl sm:text-2xl font-bold shadow-xs transition ${
-                  isFreeSpace
-                    ? 'bg-amber-500 text-white'
-                    : done
-                      ? 'bg-green-500 text-white'
-                      : 'bg-white text-gray-800 hover:bg-gray-50 border border-gray-100'
+                  done
+                    ? 'bg-green-500 text-white'
+                    : 'bg-white text-gray-800 hover:bg-gray-50 border border-gray-100'
                 } ${!done ? 'active:scale-95' : ''}`}
               >
-                {isFreeSpace ? (
-                  <>
-                    <span className="text-xl sm:text-2xl">★</span>
-                    <span className="text-[8px] sm:text-[9px] uppercase font-bold tracking-wider leading-none mt-0.5">Free</span>
-                  </>
-                ) : (
-                  letter
-                )}
+                {letter}
                 {done && (
                   <Check className="absolute bottom-1 right-1 h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={3} />
                 )}

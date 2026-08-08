@@ -102,7 +102,7 @@ export function runPreEventValidation() {
   let duplicateCellsCount = 0;
   for (const v of volunteers) {
     if (!v.board) continue;
-    const letters = v.board.filter(l => l !== '★');
+    const letters = v.board;
     const uniqueLetters = new Set(letters);
     if (letters.length !== uniqueLetters.size) {
       duplicateCellsCount++;
@@ -113,14 +113,13 @@ export function runPreEventValidation() {
     pass: duplicateCellsCount === 0 || volunteers.length < 25,
     message: duplicateCellsCount > 0 
       ? `${duplicateCellsCount} boards have duplicate letters` 
-      : 'All boards have unique letters (excluding FREE space)',
+      : 'All boards have unique letters',
   });
 
   let impossibleLetters = [];
   for (const v of volunteers) {
     if (!v.board) continue;
     for (const letter of v.board) {
-      if (letter === '★') continue;
       const others = volunteers.filter(
         (ov) =>
           ov.id !== v.id &&

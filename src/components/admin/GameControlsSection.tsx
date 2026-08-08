@@ -1,34 +1,40 @@
+'use client';
+
 import { useState } from 'react';
 import { Play, Pause, Eye, RotateCcw, Grid3x3 } from 'lucide-react';
-import { api } from '../../../api';
+import {
+  generateAllBoardsAction,
+  startEventAction,
+  pauseEventAction,
+  resumeEventAction,
+  revealTeamsAction,
+  resetEventAction,
+} from '@/actions/admin-actions';
 
-export default function GameControls({ data, password, onRefresh }) {
+interface GameControlsSectionProps {
+  status: string;
+  onRefresh: () => void;
+}
+
+export default function GameControlsSection({ status, onRefresh }: GameControlsSectionProps) {
   const [loading, setLoading] = useState('');
   const [error, setError] = useState('');
-  const [health, setHealth] = useState(null);
 
-  const status = data?.event?.status || 'setup';
-
-  async function action(name, path, confirmMsg) {
+  async function handleAction(name: string, actionFn: () => Promise<any>, confirmMsg?: string) {
     if (confirmMsg && !window.confirm(confirmMsg)) return;
     setLoading(name);
     setError('');
     try {
-      await api.adminRequest(path, { method: 'POST' }, password);
-      onRefresh();
-    } catch (err) {
-      setError(err.message);
+      const res = await actionFn();
+      if (!res.ok) {
+        setError(res.error || 'Action failed');
+      } else {
+        onRefresh();
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error occurred');
     } finally {
       setLoading('');
-    }
-  }
-
-  async function checkHealth() {
-    try {
-      const result = await api.adminRequest('/admin/health', {}, password);
-      setHealth(result);
-    } catch (err) {
-      setError(err.message);
     }
   }
 
@@ -37,51 +43,52 @@ export default function GameControls({ data, password, onRefresh }) {
       id: 'boards',
       label: 'Generate All Boards',
       icon: Grid3x3,
-      path: '/admin/generate-boards',
       disabled: status !== 'setup',
       confirm: 'Generate boards for all volunteers?',
       color: 'bg-brand-blue',
+      action: generateAllBoardsAction,
     },
     {
       id: 'start',
       label: 'Start Event',
       icon: Play,
-      path: '/admin/start-event',
       disabled: status !== 'setup',
       color: 'bg-green-600',
+      action: startEventAction,
     },
     {
       id: 'pause',
       label: 'Pause Event',
       icon: Pause,
-      path: '/admin/pause-event',
       disabled: status !== 'active',
       color: 'bg-yellow-500',
+      action: pauseEventAction,
     },
     {
       id: 'resume',
       label: 'Resume Event',
       icon: Play,
-      path: '/admin/resume-event',
       disabled: status !== 'paused',
       color: 'bg-green-600',
+      action: resumeEventAction,
     },
     {
       id: 'reveal',
       label: 'Reveal Teams',
       icon: Eye,
-      path: '/admin/reveal-teams',
       disabled: status === 'setup' || status === 'revealed',
       confirm: 'Reveal team colors to all volunteers?',
       color: 'bg-purple-600',
+      action: revealTeamsAction,
     },
     {
       id: 'reset',
       label: 'Reset Event',
       icon: RotateCcw,
-      path: '/admin/reset-event',
+      disabled: false,
       confirm: 'EMERGENCY RESET: This will clear all progress, boards, and reset the event. Are you sure?',
       color: 'bg-red-600',
+      action: resetEventAction,
     },
   ];
 
@@ -99,13 +106,10 @@ export default function GameControls({ data, password, onRefresh }) {
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {buttons.map(({ id, label, icon: Icon, path, disabled, confirm, color }) => (
+        {buttons.map(({ id, label, icon: Icon, disabled, confirm, color, action }) => (
           <button
             key={id}
-            onClick={() => {
-              if (id === 'start') checkHealth().then(() => action(id, path));
-              else action(id, path, confirm);
-            }}
+            onClick={() => handleAction(id, action, confirm)}
             disabled={disabled || loading === id}
             className={`flex items-center justify-center gap-2 rounded-2xl px-5 py-4 text-sm font-semibold text-white transition disabled:opacity-40 ${color}`}
           >
@@ -114,19 +118,6 @@ export default function GameControls({ data, password, onRefresh }) {
           </button>
         ))}
       </div>
-
-      {health && status === 'setup' && (
-        <div className={`mt-4 rounded-xl p-4 ${health.ready ? 'bg-green-50' : 'bg-red-50'}`}>
-          <p className={`font-semibold ${health.ready ? 'text-green-700' : 'text-red-700'}`}>
-            Pre-event check: {health.status}
-          </p>
-          {!health.ready && (
-            <p className="mt-1 text-sm text-red-600">
-              Fix issues in System Health before starting.
-            </p>
-          )}
-        </div>
-      )}
 
       <div className="mt-6 card text-sm text-gray-600">
         <p className="font-medium text-gray-800">Flow Guide</p>

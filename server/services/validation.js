@@ -21,7 +21,6 @@ const BINGO_LINES = [
 
 export function checkBingo(completedIndices) {
   const completedSet = new Set(completedIndices);
-  completedSet.add(12); // Index 12 is FREE space, always completed
   
   for (const line of BINGO_LINES) {
     if (line.every(idx => completedSet.has(idx))) {
@@ -45,10 +44,6 @@ export function validateCellEntry(playerId, cellIndex, { name, centre, code }) {
   const board = player.board;
   if (!board || cellIndex < 0 || cellIndex >= 25) {
     return { ok: false, message: 'Invalid cell.' };
-  }
-
-  if (cellIndex === 12) {
-    return { ok: false, message: 'The center space is already completed.' };
   }
 
   const cellLetter = board[cellIndex].toUpperCase();
